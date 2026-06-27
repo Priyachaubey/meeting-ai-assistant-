@@ -1,0 +1,1 @@
+{"name":"convopilot-ai","private":true,"packageManager":"pnpm@9.15.0","scripts":{"dev":"pnpm --parallel --filter @convopilot/web dev","build":"pnpm -r build","lint":"pnpm -r lint","test":"pnpm -r test"},"devDependencies":{"typescript":"^5.8.3"}}
