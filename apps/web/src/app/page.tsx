@@ -44,8 +44,10 @@ export default function LandingPage() {
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[.78fr_1.22fr] lg:items-center">
           <div>
             <p className="mb-4 inline-flex items-center gap-2 rounded-md border border-jade/30 bg-jade/10 px-3 py-1 text-sm font-medium"><Sparkles className="h-4 w-4" />Your Real-Time AI Meeting Copilot</p>
-            <h1 className="max-w-3xl text-5xl font-semibold leading-tight sm:text-6xl">Website aur app, ek hi premium cockpit.</h1>
-            <p className="mt-5 max-w-xl text-lg leading-8 text-ink/64">Microtechnique AI Meeting landing experience se directly working SaaS workspace tak le jata hai: live transcript, AI responses, RAG knowledge, analytics, security and billing in one polished product.</p>
+            <h1 className="max-w-3xl text-5xl font-semibold leading-tight sm:text-6xl">Transform Every Meeting into Action.ss</h1>
+            <p className="mt-5 max-w-xl text-lg leading-8 text-ink/64"> Microtechnique AI combines real-time transcription, AI meeting assistance,
+  multilingual translation, knowledge search, meeting summaries, analytics,
+  and enterprise-grade security in one intelligent workspace.</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <a href="#workspace"><Button>See live workspace <Zap className="h-4 w-4" /></Button></a>
               <Link href="/live"><Button className="bg-white text-ink">Open full meeting</Button></Link>
