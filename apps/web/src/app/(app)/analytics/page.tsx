@@ -1,7 +1,13 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Activity, AlertCircle, Clock, DollarSign } from "lucide-react";
+import {
+  Activity,
+  AlertCircle,
+  Clock,
+  DollarSign,
+  type LucideIcon,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth-store";
 
@@ -17,7 +23,7 @@ export default function AnalyticsPage() {
     ? Object.entries(data.by_provider).map(([provider, stats]) => ({ provider, cost: Number(stats.cost_usd.toFixed(4)) }))
     : [];
 
-  const stats = data
+  const stats: [LucideIcon, string, string][] = data
     ? [
         [DollarSign, `$${data.total_cost_usd.toFixed(4)}`, "total AI cost (30d)"],
         [Activity, String(data.total_events), "AI calls"],
