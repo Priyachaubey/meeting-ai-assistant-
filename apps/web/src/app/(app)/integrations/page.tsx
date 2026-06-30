@@ -1,0 +1,2 @@
+const integrations = ["Deepgram", "OpenAI", "Claude", "Gemini", "Google Drive", "Slack", "Salesforce", "HubSpot"];
+export default function IntegrationsPage() { return <section className="p-6"><h1 className="mb-6 text-2xl font-semibold">Integrations</h1><div className="grid gap-3 md:grid-cols-4">{integrations.map((i) => <div key={i} className="rounded-lg border border-ink/10 bg-white p-4 shadow-soft"><p className="font-medium">{i}</p><p className="mt-2 text-sm text-ink/50">Configured by environment secret</p></div>)}</div></section>; }

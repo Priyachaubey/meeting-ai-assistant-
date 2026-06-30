@@ -1,0 +1,1 @@
+{"title":"Microtechnique AI Meeting","panels":[{"type":"timeseries","title":"API latency"},{"type":"stat","title":"WebSocket sessions"},{"type":"timeseries","title":"Agent response time"}]}

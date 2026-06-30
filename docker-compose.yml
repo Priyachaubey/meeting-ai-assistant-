@@ -1,0 +1,197 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: convopilot
+      POSTGRES_PASSWORD: convopilot
+      POSTGRES_DB: convopilot
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    ports: ["6333:6333"]
+    volumes: ["qdrant:/qdrant/storage"]
+  api:
+    build: ./apps/api
+    env_file: .env
+    environment:
+      - AI_SERVER_URL=http://ai-server:8001
+    depends_on: [postgres, redis, qdrant, ai-server]
+    ports: ["8000:8000"]
+  web:
+    build:
+      context: ./apps/web
+      args:
+        # See apps/web/Dockerfile's comment on why these specifically must be build args,
+        # not just env_file/environment (which only affect the running container, not the
+        # `next build` step). Falls back to the same localhost defaults as before if unset —
+        # only matters in production, where these MUST be set to your real public URLs.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8000}
+        NEXT_PUBLIC_MEETING_SERVER_URL: ${NEXT_PUBLIC_MEETING_SERVER_URL:-http://localhost:8002}
+        NEXT_PUBLIC_MEETING_WS_URL: ${NEXT_PUBLIC_MEETING_WS_URL:-ws://localhost:8002}
+        NEXT_PUBLIC_TURN_URL: ${NEXT_PUBLIC_TURN_URL:-}
+        NEXT_PUBLIC_TURN_USERNAME: ${NEXT_PUBLIC_TURN_USERNAME:-}
+        NEXT_PUBLIC_TURN_CREDENTIAL: ${NEXT_PUBLIC_TURN_CREDENTIAL:-}
+    env_file: .env
+    depends_on: [api]
+    ports: ["3000:3000"]
+
+  # ── AI Server (self-hosted ML, CPU profile – default) ───────────────────
+  # Added from Phase 5: a real, working self-hosted inference service
+  # (Qwen2.5, faster-whisper, NLLB-200, sentence-transformers, etc). Not
+  # yet wired into `api`/`web` as the active provider — see merge report.
+  ai-server:
+    build:
+      context: ./apps/ai-server
+      args:
+        TORCH_INDEX: https://download.pytorch.org/whl/cpu
+    env_file: .env
+    environment:
+      - AI_SERVER_PORT=8001
+      - BUSINESS_API_URL=http://api:8000
+      - REDIS_URL=redis://redis:6379/1
+      - DEVICE=cpu
+      - USE_ML_MODELS=${USE_ML_MODELS:-true}
+      - LLM_PROVIDER=${AI_LLM_PROVIDER:-ml}
+      - LLM_MODEL=${LLM_MODEL:-Qwen/Qwen2.5-7B-Instruct}
+      - SPEECH_PROVIDER=${AI_SPEECH_PROVIDER:-ml}
+      - WHISPER_MODEL_SIZE=${WHISPER_MODEL_SIZE:-large-v3-turbo}
+      - TRANSLATION_PROVIDER=${TRANSLATION_PROVIDER:-ml}
+      - TRANSLATION_MODEL=${TRANSLATION_MODEL:-facebook/nllb-200-distilled-600M}
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-ml}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      - VISION_PROVIDER=${VISION_PROVIDER:-ml}
+      - OCR_PROVIDER=${OCR_PROVIDER:-ml}
+      - DIARIZATION_ENABLED=${DIARIZATION_ENABLED:-true}
+      - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN:-}
+      - HF_HOME=/models/huggingface
+    depends_on: [redis]
+    ports: ["8001:8001"]
+    volumes:
+      - ${MODEL_DIR:-model_cache}:/models
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+
+  # ── AI Server (GPU profile – `docker compose --profile gpu up`) ─────────
+  ai-server-gpu:
+    profiles: ["gpu"]
+    build:
+      context: ./apps/ai-server
+      args:
+        BASE_IMAGE: nvidia/cuda:12.4.1-runtime-ubuntu22.04
+        TORCH_INDEX: https://download.pytorch.org/whl/cu124
+    env_file: .env
+    environment:
+      - AI_SERVER_PORT=8001
+      - BUSINESS_API_URL=http://api:8000
+      - REDIS_URL=redis://redis:6379/1
+      - DEVICE=cuda
+      - USE_ML_MODELS=true
+      - LLM_PROVIDER=${AI_LLM_PROVIDER:-ml}
+      - LLM_MODEL=${LLM_MODEL:-Qwen/Qwen2.5-7B-Instruct}
+      - SPEECH_PROVIDER=${AI_SPEECH_PROVIDER:-ml}
+      - WHISPER_MODEL_SIZE=${WHISPER_MODEL_SIZE:-large-v3-turbo}
+      - TRANSLATION_PROVIDER=${TRANSLATION_PROVIDER:-ml}
+      - TRANSLATION_MODEL=${TRANSLATION_MODEL:-facebook/nllb-200-distilled-600M}
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-ml}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      - VISION_PROVIDER=${VISION_PROVIDER:-ml}
+      - OCR_PROVIDER=${OCR_PROVIDER:-ml}
+      - DIARIZATION_ENABLED=${DIARIZATION_ENABLED:-true}
+      - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN:-}
+      - HF_HOME=/models/huggingface
+    depends_on: [redis]
+    ports: ["8001:8001"]
+    volumes:
+      - ${MODEL_DIR:-model_cache}:/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 180s
+      retries: 3
+
+  # ── AI Server (Ollama mode – lightweight, model managed by Ollama) ───────
+  ai-server-ollama:
+    profiles: ["ollama"]
+    build:
+      context: ./apps/ai-server
+      args:
+        TORCH_INDEX: https://download.pytorch.org/whl/cpu
+    env_file: .env
+    environment:
+      - AI_SERVER_PORT=8001
+      - BUSINESS_API_URL=http://api:8000
+      - REDIS_URL=redis://redis:6379/1
+      - DEVICE=cpu
+      - USE_ML_MODELS=true
+      - LLM_PROVIDER=ollama
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:7b-instruct}
+      - SPEECH_PROVIDER=${AI_SPEECH_PROVIDER:-ml}
+      - WHISPER_MODEL_SIZE=${WHISPER_MODEL_SIZE:-base}
+      - HF_HOME=/models/huggingface
+    depends_on: [redis, ollama]
+    ports: ["8001:8001"]
+    volumes:
+      - ${MODEL_DIR:-model_cache}:/models
+
+  # ── Ollama (optional – use with 'ollama' profile) ────────────────────────
+  ollama:
+    profiles: ["ollama"]
+    image: ollama/ollama:latest
+    ports: ["11434:11434"]
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama-gpu:
+    profiles: ["ollama-gpu"]
+    image: ollama/ollama:latest
+    ports: ["11434:11434"]
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # ── Meeting Server (real-time rooms/participants/chat/recording) ────────
+  meeting-server:
+    build: ./apps/meeting-server
+    env_file: .env
+    environment:
+      - MEETING_SERVER_PORT=8002
+      - BUSINESS_API_URL=http://api:8000
+      - AI_SERVER_URL=http://ai-server:8001
+      - REDIS_URL=redis://redis:6379/2
+    depends_on: [redis]
+    ports: ["8002:8002"]
+
+volumes:
+  pgdata:
+  qdrant:
+  model_cache:
+  ollama_data:

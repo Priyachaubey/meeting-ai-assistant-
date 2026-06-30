@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: convopilot-web }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: convopilot-web } }
+  template:
+    metadata: { labels: { app: convopilot-web } }
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/your-org/convopilot-web:latest
+          ports: [{ containerPort: 3000 }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: convopilot-web }
+spec:
+  selector: { app: convopilot-web }
+  ports: [{ port: 80, targetPort: 3000 }]
